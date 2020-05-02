@@ -1,6 +1,9 @@
 import io from "socket.io-client";
 
-const socket = io("https://f8re4-8080.sse.codesandbox.io", {
+// const SERVER_ADDRESS = 'https://f8re4-8080.sse.codesandbox.io'
+const SERVER_ADDRESS = "localhost:8080";
+
+const socket = io(SERVER_ADDRESS, {
   autoConnect: false
 });
 

@@ -1,63 +1,74 @@
-import React, { useState, useEffect } from "react";
-import { BrowserRouter, Switch, Route, Redirect } from "react-router-dom";
+import React, { useEffect } from "react";
+import io from "socket.io-client";
+import { Switch, Route, Redirect, useLocation } from "react-router-dom";
+import { animated, useTransition } from "react-spring";
+
 import Home from "./views/Home/Home";
 import CreateGame from "./views/CreateGame";
-import JoinGame from "./views/JoinGame";
-import Lobby from "./views/Lobby";
-import Scoreboard from "./views/Scoreboard";
-import Speed from "./microgames/Speed";
-import Accuracy from "./microgames/Accuracy";
-import Random from "./microgames/Random";
-import { connect } from "./io";
-import Dev from "./components/Dev/Dev";
+import { SocketDebug } from "./components/SocketDebug";
+import { useSocketContext } from "./stores/socket/socket.context";
+import { useGameContext } from "./stores/game/game.context";
+import {
+  GAME_CREATED,
+  GAME_JOINED,
+  PLAYER_JOINED,
+  PLAYER_IS_READY,
+  SET_PLAYER_SCORE,
+  MOVE_TO_SCOREBOARD,
+  MOVE_TO_GAME,
+  MOVE_TO_RESULTS
+} from "./stores/game/game.reducer";
 
-const initialState = {
-  connected: false,
-  game: null,
-  player: null,
-  // host controls
-  lobbyIsReady: false
-};
+const SERVER_ADDRESS = "localhost:8080";
 
 export default function App() {
-  const [state, setState] = useState(initialState);
-  const mergeState = update => setState(state => ({ ...state, ...update }));
-  const stateProps = { state, mergeState };
+  const [socketState, socketActions] = useSocketContext();
+  const [gameState, gameActions] = useGameContext();
+  const location = useLocation();
+  const transitions = useTransition(location, location => location.pathname, {
+    clamp: true,
+    from: { position: "absolute", opacity: 0 },
+    enter: { opacity: 1 },
+    leave: { opacity: 0 }
+  });
 
   useEffect(() => {
-    connect(mergeState);
+    const socket = io(SERVER_ADDRESS, { autoConnect: false });
+    socketActions.socketInitialize(socket);
+
+    socket.on("connect", socketActions.socketConnected);
+    socket.on("disconnect", socketActions.socketDisconnected);
+
+    socket.on(GAME_CREATED, gameActions.handleGameCreated);
+    socket.on(GAME_JOINED, gameActions.handleGameJoined);
+    socket.on(PLAYER_JOINED, gameActions.handlePlayerJoined);
+    socket.on(PLAYER_IS_READY, gameActions.handlePlayerIsReady);
+    socket.on(SET_PLAYER_SCORE, gameActions.handleSetPlayerScore);
+    socket.on(MOVE_TO_SCOREBOARD, gameActions.handleMoveToScoreboard);
+    socket.on(MOVE_TO_GAME, gameActions.handleMoveToGame);
+    socket.on(MOVE_TO_RESULTS, gameActions.handleMoveToResults);
+
+    socket.open();
   }, []);
 
   return (
-    <BrowserRouter>
-      <Dev {...stateProps} />
-      <Switch>
-        <Route exact path="/">
-          <Home {...stateProps} />
-        </Route>
-        <Route exact path="/create-game">
-          <CreateGame {...stateProps} />
-        </Route>
-        <Route exact path="/join-game/:gameId">
-          <JoinGame {...stateProps} />
-        </Route>
-        <Route exact path="/lobby/:gameId">
-          <Lobby {...stateProps} />
-        </Route>
-        <Route exact path="/scoreboard/:gameId">
-          <Scoreboard {...stateProps} />
-        </Route>
-        <Route exact path="/microgame/accuracy">
-          <Accuracy {...stateProps} />
-        </Route>
-        <Route exact path="/microgame/random">
-          <Random {...stateProps} />
-        </Route>
-        <Route exact path="/microgame/speed">
-          <Speed {...stateProps} />
-        </Route>
-        <Redirect to="/" />
-      </Switch>
-    </BrowserRouter>
+    <>
+      <SocketDebug />
+      {transitions.map(({ item, props, key }) => (
+        <animated.div key={key} style={props} className="screen">
+          <Switch location={item}>
+            <Route exact path="/">
+              <Home />
+            </Route>
+
+            <Route exact path="/create-game">
+              <CreateGame />
+            </Route>
+
+            <Redirect to="/" />
+          </Switch>
+        </animated.div>
+      ))}
+    </>
   );
 }

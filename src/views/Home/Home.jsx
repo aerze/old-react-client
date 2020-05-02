@@ -3,9 +3,11 @@ import { Link } from "react-router-dom";
 import { Button, Container, Row, Col } from "reactstrap";
 
 import "./Home.scss";
+import { useSocketContext } from "../../stores/socket/socket.context";
 
 export default function Home(props) {
-  const { connected } = props.state;
+  const [socketState] = useSocketContext();
+  const { connected } = socketState;
 
   return (
     <div className="home">
